@@ -5,6 +5,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import YieldDashboard from '@/components/YieldDashboard';
 import StrategyInput from '@/components/StrategyInput';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TrendingUp, Shield, Zap } from 'lucide-react';
@@ -27,7 +28,10 @@ export default function Home() {
               AI-Powered DeFi Yield Optimization MVP
             </p>
           </div>
-          <ConnectButton />
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <ConnectButton />
+          </div>
         </div>
 
         {/* Feature Cards */}
