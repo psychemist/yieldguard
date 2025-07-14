@@ -45,31 +45,34 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
       const response = await fetch('http://localhost:8000/yields/historical?days=30');
       
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        console.error(`API error: ${response.status}`);
+        setHistoricalData([]); // Set empty array instead of throwing
+        return;
       }
       
       const data = await response.json();
       console.log('Received real historical data:', data);
       
-      // Transform REAL data for chart
-      const chartData = data.dates?.map((date: string, index: number) => ({
-        date,
-        ...Object.keys(data.yields || {}).reduce((acc, assetName) => {
-          acc[assetName] = data.yields[assetName]?.[index] || 0;
-          return acc;
-        }, {} as Record<string, number>)
-      })) || [];
-      
-      if (chartData.length === 0) {
-        throw new Error('No real data received from API');
+      // Transform REAL data for chart - handle the actual API response structure
+      if (data.dates && data.yields) {
+        const chartData = data.dates.map((date: string, index: number) => {
+          const dataPoint: any = { date };
+          Object.keys(data.yields).forEach(assetName => {
+            dataPoint[assetName] = data.yields[assetName]?.[index] || 0;
+          });
+          return dataPoint;
+        });
+        
+        setHistoricalData(chartData);
+        console.log(`Successfully loaded ${chartData.length} days of real historical data`);
+      } else {
+        console.warn('No historical data structure found, using empty array');
+        setHistoricalData([]);
       }
-      
-      setHistoricalData(chartData);
-      console.log(`Successfully loaded ${chartData.length} days of real historical data`);
       
     } catch (error) {
       console.error('Failed to fetch real historical data:', error);
-      throw new Error(`Real data fetch failed: ${error}`);
+      setHistoricalData([]); // Gracefully handle errors
     } finally {
       setLoading(false);
     }
@@ -81,20 +84,17 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
       const response = await fetch('http://localhost:8000/gas/current');
       
       if (!response.ok) {
-        throw new Error(`Gas API error: ${response.status}`);
+        console.error(`Gas API error: ${response.status}`);
+        return;
       }
       
       const data = await response.json();
       console.log('Received real gas data:', data);
       
-      if (!data.slow || !data.standard || !data.fast) {
-        throw new Error('Invalid gas data received');
-      }
-      
       setGasData(data);
     } catch (error) {
       console.error('Failed to fetch real gas data:', error);
-      throw new Error(`Real gas data fetch failed: ${error}`);
+      // Don't set gasData, component will handle null state
     }
   };
 
@@ -202,55 +202,80 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
         <Card>
           <CardHeader>
             <CardTitle>Historical Yields</CardTitle>
-            <CardDescription>Past 30 days yield performance</CardDescription>
+            <CardDescription>Past 30 days yield performance from real DeFi protocols</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={historicalData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="USDC/ETH" stroke="#3B82F6" strokeWidth={2} />
-                <Line type="monotone" dataKey="USDT/ETH" stroke="#10B981" strokeWidth={2} />
-                <Line type="monotone" dataKey="WBTC/ETH" stroke="#F59E0B" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+            {historicalData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={historicalData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  {/* Dynamically render lines for all real assets */}
+                  {Object.keys(historicalData[0] || {}).filter(key => key !== 'date').map((assetName, index) => (
+                    <Line 
+                      key={assetName}
+                      type="monotone" 
+                      dataKey={assetName} 
+                      stroke={pieColors[index % pieColors.length]} 
+                      strokeWidth={2} 
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                <div className="text-center">
+                  <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Loading real historical data...</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* Allocation Pie Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Recommended Allocation</CardTitle>
+            <CardTitle>AI Recommended Allocation</CardTitle>
             <CardDescription>
-              {recommendation ? `Based on ${recommendation.capital} capital` : 'Sample allocation'}
+              {recommendation ? 
+                `Real market analysis for $${recommendation.capital.toLocaleString()} investment` : 
+                'Connect and get AI recommendation based on real DeFi data'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={recommendation?.allocations || [
-                    { asset: 'USDC/ETH', percentage: 40 },
-                    { asset: 'USDT/ETH', percentage: 35 },
-                    { asset: 'WBTC/ETH', percentage: 25 }
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ asset, percentage }) => `${asset}: ${percentage}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="percentage"
-                >
-                  {(recommendation?.allocations || []).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {recommendation?.allocations ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={recommendation.allocations}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ asset, percentage }) => `${asset}: ${percentage}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="percentage"
+                  >
+                    {recommendation.allocations.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                <div className="text-center">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Get AI recommendation to see optimal allocation</p>
+                  <p className="text-xs mt-1">Go to Strategy Builder tab to generate recommendations</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

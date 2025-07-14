@@ -42,21 +42,39 @@ async def get_recommendations(request: RecommendationRequest):
     Get AI-powered yield optimization recommendations
     """
     try:
-        # Fetch current data
-        yield_data = await yield_fetcher.get_current_yields()
-        gas_price = await gas_fetcher.get_current_gas_price()
+        print(f"Processing recommendation request: ${request.capital}, {request.risk_profile}")
         
-        # Generate recommendations using AI model
+        # Fetch current REAL data
+        print("Fetching real yield data...")
+        yield_data = await yield_fetcher.get_current_yields()
+        print(f"Got {len(yield_data)} real yield opportunities")
+        
+        print("Fetching real gas data...")
+        gas_data = await gas_fetcher.get_current_gas_price()
+        print(f"Got real gas prices: {gas_data}")
+        
+        if not yield_data:
+            raise HTTPException(status_code=503, detail="No real yield data available from DeFi protocols")
+        
+        # Generate recommendations using AI model with real data
+        print("Generating AI recommendation with real market data...")
         recommendation = await model_runner.generate_recommendation(
             capital=request.capital,
             risk_profile=request.risk_profile,
             yield_data=yield_data,
-            gas_price=gas_price
+            gas_data=gas_data
         )
         
+        print(f"Successfully generated recommendation: {recommendation.total_expected_yield:.2f}% yield")
         return recommendation
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error in recommendations endpoint: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to generate real recommendations: {str(e)}")
 
 @app.get("/yields/historical")
 async def get_historical_yields(days: int = 30):

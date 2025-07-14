@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from typing import List, Dict
 from datetime import datetime
+import aiohttp
 from ..models.recommendation import (
     RecommendationResponse, 
     AllocationItem, 
@@ -227,9 +228,21 @@ class ModelRunner:
             # Calculate cost in ETH
             gas_cost_eth = (total_gas * gas_price_wei) / 1e18
             
+            # Fetch real ETH price from CoinGecko API
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd'
+                    ) as response:
+                        if response.status == 200:
+                            price_data = await response.json()
+                            eth_price_usd = price_data['ethereum']['usd']
+                        else:
+                            raise Exception(f"Failed to fetch ETH price: HTTP {response.status}")
+            except aiohttp.ClientError as e:
+                raise Exception(f"Network error fetching ETH price: {e}")
+
             # Convert to USD using real ETH price
-            # This would ideally fetch real ETH price, for now use approximate
-            eth_price_usd = 3500  # This should be fetched from CoinGecko in production
             gas_cost_usd = gas_cost_eth * eth_price_usd
             
             return round(gas_cost_usd, 2)
