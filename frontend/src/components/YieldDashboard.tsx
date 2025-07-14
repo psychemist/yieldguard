@@ -41,22 +41,35 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
 
   const fetchHistoricalData = async () => {
     try {
+      console.log('Fetching REAL historical data from backend...');
       const response = await fetch('http://localhost:8000/yields/historical?days=30');
-      const data = await response.json();
       
-      // Transform data for chart
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Received real historical data:', data);
+      
+      // Transform REAL data for chart
       const chartData = data.dates?.map((date: string, index: number) => ({
         date,
-        'USDC/ETH': data.yields?.['USDC/ETH']?.[index] || 0,
-        'USDT/ETH': data.yields?.['USDT/ETH']?.[index] || 0,
-        'WBTC/ETH': data.yields?.['WBTC/ETH']?.[index] || 0,
+        ...Object.keys(data.yields || {}).reduce((acc, assetName) => {
+          acc[assetName] = data.yields[assetName]?.[index] || 0;
+          return acc;
+        }, {} as Record<string, number>)
       })) || [];
       
+      if (chartData.length === 0) {
+        throw new Error('No real data received from API');
+      }
+      
       setHistoricalData(chartData);
+      console.log(`Successfully loaded ${chartData.length} days of real historical data`);
+      
     } catch (error) {
-      console.error('Error fetching historical data:', error);
-      // Mock data for development
-      setHistoricalData(generateMockData());
+      console.error('Failed to fetch real historical data:', error);
+      throw new Error(`Real data fetch failed: ${error}`);
     } finally {
       setLoading(false);
     }
@@ -64,29 +77,25 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
 
   const fetchGasData = async () => {
     try {
+      console.log('Fetching REAL gas data from backend...');
       const response = await fetch('http://localhost:8000/gas/current');
+      
+      if (!response.ok) {
+        throw new Error(`Gas API error: ${response.status}`);
+      }
+      
       const data = await response.json();
+      console.log('Received real gas data:', data);
+      
+      if (!data.slow || !data.standard || !data.fast) {
+        throw new Error('Invalid gas data received');
+      }
+      
       setGasData(data);
     } catch (error) {
-      console.error('Error fetching gas data:', error);
-      setGasData({ slow: 20, standard: 25, fast: 30 });
+      console.error('Failed to fetch real gas data:', error);
+      throw new Error(`Real gas data fetch failed: ${error}`);
     }
-  };
-
-  const generateMockData = () => {
-    const data = [];
-    const now = new Date();
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      data.push({
-        date: date.toISOString().split('T')[0],
-        'USDC/ETH': 12.5 + Math.random() * 5,
-        'USDT/ETH': 8.3 + Math.random() * 3,
-        'WBTC/ETH': 15.2 + Math.random() * 7,
-      });
-    }
-    return data;
   };
 
   const getRiskColor = (score: number) => {

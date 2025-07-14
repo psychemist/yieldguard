@@ -2,79 +2,108 @@ import httpx
 import asyncio
 from typing import Dict
 from datetime import datetime
-from ..models.recommendation import GasData
 
 class GasFetcher:
     """
-    Service to fetch current gas prices from Ethereum network
+    Service to fetch REAL current gas prices from Ethereum network
     """
     
     def __init__(self):
-        # Using Etherscan API for gas prices
+        # Using multiple APIs for gas prices
         self.etherscan_url = "https://api.etherscan.io/api"
+        self.owlracle_url = "https://api.owlracle.info/v4/eth"
+        self.blocknative_url = "https://api.blocknative.com/gasprices/blockprices"
         self.client = httpx.AsyncClient(timeout=30.0)
     
-    async def get_current_gas_price(self) -> GasData:
+    async def get_current_gas_price(self) -> Dict:
         """
-        Fetch current gas prices from Ethereum network
+        Fetch REAL current gas prices from Ethereum network
         """
         try:
-            # Try to get gas prices from Etherscan
-            response = await self.client.get(
-                f"{self.etherscan_url}?module=gastracker&action=gasoracle"
-            )
+            print("Fetching real gas prices from Ethereum network...")
             
-            if response.status_code == 200:
-                data = response.json()
-                if data.get("status") == "1":
-                    result = data.get("result", {})
-                    return GasData(
-                        slow=float(result.get("SafeGasPrice", 20)),
-                        standard=float(result.get("ProposeGasPrice", 25)),
-                        fast=float(result.get("FastGasPrice", 30)),
-                        timestamp=datetime.now()
-                    )
+            # Try Owlracle first (free, no API key needed)
+            try:
+                response = await self.client.get(f"{self.owlracle_url}/gas")
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    # Extract gas prices from response
+                    slow = data.get("speeds", [{}])[0].get("gasPrice", 20)
+                    standard = data.get("speeds", [{}])[1].get("gasPrice", 25) if len(data.get("speeds", [])) > 1 else slow + 5
+                    fast = data.get("speeds", [{}])[2].get("gasPrice", 30) if len(data.get("speeds", [])) > 2 else standard + 5
+                    
+                    print(f"Real gas prices: Slow={slow}, Standard={standard}, Fast={fast}")
+                    
+                    return {
+                        "slow": float(slow),
+                        "standard": float(standard),
+                        "fast": float(fast),
+                        "timestamp": datetime.now().isoformat()
+                    }
+            except Exception as e:
+                print(f"Owlracle API failed: {e}")
             
-            # Fallback to mock data
-            return self._get_mock_gas_data()
+            # Fallback to Etherscan
+            try:
+                response = await self.client.get(
+                    f"{self.etherscan_url}?module=gastracker&action=gasoracle"
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == "1":
+                        result = data.get("result", {})
+                        
+                        slow = float(result.get("SafeGasPrice", 20))
+                        standard = float(result.get("ProposeGasPrice", 25))
+                        fast = float(result.get("FastGasPrice", 30))
+                        
+                        print(f"Real gas prices from Etherscan: Slow={slow}, Standard={standard}, Fast={fast}")
+                        
+                        return {
+                            "slow": slow,
+                            "standard": standard,
+                            "fast": fast,
+                            "timestamp": datetime.now().isoformat()
+                        }
+            except Exception as e:
+                print(f"Etherscan API failed: {e}")
+            
+            # If all APIs fail, raise error
+            raise Exception("All gas price APIs failed")
             
         except Exception as e:
-            print(f"Error fetching gas prices: {e}")
-            return self._get_mock_gas_data()
-    
-    def _get_mock_gas_data(self) -> GasData:
-        """Mock gas data for development"""
-        return GasData(
-            slow=20.0,
-            standard=25.0,
-            fast=30.0,
-            timestamp=datetime.now()
-        )
+            print(f"Error fetching real gas prices: {e}")
+            raise Exception(f"Failed to fetch real gas data: {e}")
     
     async def estimate_transaction_cost(self, gas_price: float, gas_limit: int = 21000) -> float:
         """
-        Estimate transaction cost in USD
+        Estimate REAL transaction cost in USD using current ETH price
         """
         try:
-            # Get ETH price from CoinGecko
+            print("Fetching real ETH price for gas cost calculation...")
+            
+            # Get current ETH price from CoinGecko
             response = await self.client.get(
                 "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd"
             )
             
             if response.status_code == 200:
                 data = response.json()
-                eth_price = data.get("ethereum", {}).get("usd", 2000)
+                eth_price = data.get("ethereum", {}).get("usd")
                 
-                # Calculate cost: gas_price (gwei) * gas_limit * ETH_price / 1e9
-                cost_usd = (gas_price * gas_limit * eth_price) / 1e9
-                return cost_usd
+                if eth_price:
+                    # Calculate real cost: gas_price (gwei) * gas_limit * ETH_price / 1e9
+                    cost_usd = (gas_price * gas_limit * eth_price) / 1e9
+                    print(f"Real transaction cost: ${cost_usd:.2f} (ETH price: ${eth_price})")
+                    return cost_usd
             
-            # Fallback calculation with assumed ETH price
-            return (gas_price * gas_limit * 2000) / 1e9
+            raise Exception("Failed to get ETH price")
             
         except Exception as e:
-            print(f"Error estimating transaction cost: {e}")
-            return (gas_price * gas_limit * 2000) / 1e9
+            print(f"Error calculating real transaction cost: {e}")
+            raise Exception(f"Failed to calculate real gas cost: {e}")
     
     async def close(self):
         """Close HTTP client"""

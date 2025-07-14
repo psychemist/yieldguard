@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAppKit } from '@reown/appkit/react';
 import { useAccount } from 'wagmi';
 import YieldDashboard from '@/components/YieldDashboard';
 import StrategyInput from '@/components/StrategyInput';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TrendingUp, Shield, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, Shield, Zap, Wallet } from 'lucide-react';
 
 export default function Home() {
   const { address, isConnected } = useAccount();
+  const { open } = useAppKit();
   const [recommendation, setRecommendation] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +32,14 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
-            <ConnectButton />
+            {isConnected ? (
+              <w3m-button />
+            ) : (
+              <Button onClick={() => open()} className="flex items-center gap-2">
+                <Wallet className="h-4 w-4" />
+                Connect Wallet
+              </Button>
+            )}
           </div>
         </div>
 
