@@ -16,6 +16,12 @@ export default function Home() {
   const { open } = useAppKit();
   const [recommendation, setRecommendation] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
+
+  // Function to navigate to dashboard after getting recommendation
+  const handleViewDashboard = () => {
+    setActiveTab('dashboard');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -54,7 +60,7 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                AI-powered allocation across Uniswap V3 pools
+                AI-powered allocation across DeFi protocols with real market data
               </p>
             </CardContent>
           </Card>
@@ -68,7 +74,7 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Customizable risk profiles with real-time assessment
+                Customizable risk profiles with AI agent analysis
               </p>
             </CardContent>
           </Card>
@@ -89,7 +95,7 @@ export default function Home() {
         </div>
 
         {/* Main Dashboard */}
-        <Tabs defaultValue="dashboard" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="strategy">Strategy Builder</TabsTrigger>
@@ -109,6 +115,7 @@ export default function Home() {
               loading={loading}
               setLoading={setLoading}
               isConnected={isConnected}
+              onViewDashboard={handleViewDashboard}
             />
           </TabsContent>
         </Tabs>

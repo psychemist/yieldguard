@@ -8,20 +8,88 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Calculator, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Loader2, Calculator, TrendingUp, AlertTriangle, CheckCircle, Eye, Info } from 'lucide-react';
+
+interface AllocationItem {
+  asset: string;
+  percentage: number;
+  expected_yield: number;
+  risk_score: number;
+}
+
+interface Recommendation {
+  timestamp: string;
+  capital: number;
+  risk_profile: string;
+  allocations: AllocationItem[];
+  total_expected_yield: number;
+  total_risk_score: number;
+  gas_cost_estimate: number;
+  confidence_score: number;
+}
 
 interface Props {
-  onRecommendation: (recommendation: any) => void;
+  onRecommendation: (recommendation: Recommendation) => void;
   loading: boolean;
   setLoading: (loading: boolean) => void;
   isConnected: boolean;
+  onViewDashboard: () => void; // New prop for navigation
 }
 
-export default function StrategyInput({ onRecommendation, loading, setLoading, isConnected }: Props) {
+export default function StrategyInput({ onRecommendation, loading, setLoading, isConnected, onViewDashboard }: Props) {
   const [capital, setCapital] = useState('1000');
   const [riskProfile, setRiskProfile] = useState('medium');
-  const [gasPreference, setGasPreference] = useState([25]); // Standard gas
+  const [gasPreference, setGasPreference] = useState([25]);
   const [error, setError] = useState('');
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Helper function to make asset names user-friendly
+  const getAssetDisplayName = (asset: string): { name: string; description: string } => {
+    const assetMap: Record<string, { name: string; description: string }> = {
+      'STETH': { 
+        name: 'Staked Ethereum (Lido)', 
+        description: 'Earn staking rewards on your ETH while keeping it liquid' 
+      },
+      'WSTETH': { 
+        name: 'Wrapped Staked ETH', 
+        description: 'Lido\'s rebasing-free version of staked ETH' 
+      },
+      'WEETH': { 
+        name: 'Wrapped eETH', 
+        description: 'Ether.fi\'s liquid staking token for Ethereum' 
+      },
+      'WBETH': { 
+        name: 'Wrapped Beacon ETH', 
+        description: 'Binance\'s liquid staking derivative for ETH' 
+      },
+      'SUSDE': { 
+        name: 'Staked USDe', 
+        description: 'Ethena\'s synthetic dollar with staking rewards' 
+      },
+      'SUSDS': { 
+        name: 'Staked USDS', 
+        description: 'Ethena\'s staked synthetic dollar token' 
+      },
+      'USDC': { 
+        name: 'USD Coin', 
+        description: 'Circle\'s fully-backed USD stablecoin' 
+      },
+      'USDT': { 
+        name: 'Tether USD', 
+        description: 'Tether\'s USD-pegged stablecoin' 
+      },
+      'EZETH': { 
+        name: 'Renzo Restaked ETH', 
+        description: 'Liquid restaking token through Renzo protocol' 
+      }
+    };
+    
+    return assetMap[asset.toUpperCase()] || { 
+      name: asset, 
+      description: 'DeFi yield-bearing asset' 
+    };
+  };
 
   const handleGetRecommendation = async () => {
     if (!capital || parseFloat(capital) <= 0) {
@@ -49,14 +117,21 @@ export default function StrategyInput({ onRecommendation, loading, setLoading, i
         throw new Error('Failed to get recommendation');
       }
 
-      const recommendation = await response.json();
-      onRecommendation(recommendation);
+      const recommendationData = await response.json();
+      setRecommendation(recommendationData);
+      onRecommendation(recommendationData);
+      setShowSuccessModal(true);
     } catch (err) {
       setError('Unable to get recommendation. Please try again.');
       console.error('Error:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleViewDashboard = () => {
+    setShowSuccessModal(false);
+    onViewDashboard();
   };
 
   const getRiskDescription = (profile: string) => {
@@ -80,6 +155,90 @@ export default function StrategyInput({ onRecommendation, loading, setLoading, i
 
   return (
     <div className="space-y-6">
+      {/* Success Modal */}
+      {showSuccessModal && recommendation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+                <div>
+                  <h2 className="text-2xl font-bold text-green-600">AI Recommendation Complete!</h2>
+                  <p className="text-gray-600">Your optimized yield strategy is ready</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 p-4 bg-green-50 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {recommendation.total_expected_yield.toFixed(2)}%
+                    </div>
+                    <div className="text-sm text-green-700">Expected Annual Yield</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {(recommendation.confidence_score * 100).toFixed(0)}%
+                    </div>
+                    <div className="text-sm text-blue-700">AI Confidence</div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    Recommended Allocation ({recommendation.allocations.length} assets)
+                  </h3>
+                  <div className="space-y-3">
+                    {recommendation.allocations.map((allocation, index) => {
+                      const assetInfo = getAssetDisplayName(allocation.asset);
+                      return (
+                        <div key={index} className="border rounded-lg p-3">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1">
+                              <div className="font-medium">{assetInfo.name}</div>
+                              <div className="text-sm text-gray-600">{assetInfo.description}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="font-bold">{allocation.percentage.toFixed(1)}%</div>
+                              <div className="text-sm text-green-600">{allocation.expected_yield.toFixed(2)}% APY</div>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full" 
+                              style={{ width: `${allocation.percentage}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={handleViewDashboard}
+                    className="flex-1"
+                    size="lg"
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Dashboard
+                  </Button>
+                  <Button 
+                    onClick={() => setShowSuccessModal(false)}
+                    variant="destructive"
+                    size="lg"
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

@@ -248,25 +248,52 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
           </CardHeader>
           <CardContent>
             {recommendation?.allocations ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={recommendation.allocations}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ asset, percentage }) => `${asset}: ${percentage}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="percentage"
-                  >
-                    {recommendation.allocations.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="space-y-4">
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={recommendation.allocations.map(alloc => ({
+                        ...alloc,
+                        name: getAssetDisplayName(alloc.asset).name
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) => `${name}: ${percentage}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="percentage"
+                    >
+                      {recommendation.allocations.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                
+                {/* Asset Details */}
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm">Asset Details:</h4>
+                  {recommendation.allocations.map((allocation, index) => {
+                    const assetInfo = getAssetDisplayName(allocation.asset);
+                    return (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs">
+                        <div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100">
+                            {assetInfo.name} ({allocation.asset})
+                          </div>
+                          <div className="text-gray-600 dark:text-gray-400">{assetInfo.description}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium text-gray-900 dark:text-gray-100">{allocation.percentage.toFixed(1)}%</div>
+                          <div className="text-green-600 dark:text-green-400">{allocation.expected_yield.toFixed(2)}% APY</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                 <div className="text-center">
@@ -307,4 +334,51 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
       )}
     </div>
   );
+
+  // Helper function to make asset names user-friendly (add this before the return statement)
+  function getAssetDisplayName(asset: string): { name: string; description: string } {
+    const assetMap: Record<string, { name: string; description: string }> = {
+      'STETH': { 
+        name: 'Staked Ethereum (Lido)', 
+        description: 'Earn staking rewards on your ETH while keeping it liquid' 
+      },
+      'WSTETH': { 
+        name: 'Wrapped Staked ETH', 
+        description: 'Lido\'s rebasing-free version of staked ETH' 
+      },
+      'WEETH': { 
+        name: 'Wrapped eETH', 
+        description: 'Ether.fi\'s liquid staking token for Ethereum' 
+      },
+      'WBETH': { 
+        name: 'Wrapped Beacon ETH', 
+        description: 'Binance\'s liquid staking derivative for ETH' 
+      },
+      'SUSDE': { 
+        name: 'Staked USDe', 
+        description: 'Ethena\'s synthetic dollar with staking rewards' 
+      },
+      'SUSDS': { 
+        name: 'Staked USDS', 
+        description: 'Ethena\'s staked synthetic dollar token' 
+      },
+      'USDC': { 
+        name: 'USD Coin', 
+        description: 'Circle\'s fully-backed USD stablecoin' 
+      },
+      'USDT': { 
+        name: 'Tether USD', 
+        description: 'Tether\'s USD-pegged stablecoin' 
+      },
+      'EZETH': { 
+        name: 'Renzo Restaked ETH', 
+        description: 'Liquid restaking token through Renzo protocol' 
+      }
+    };
+    
+    return assetMap[asset.toUpperCase()] || { 
+      name: asset, 
+      description: 'DeFi yield-bearing asset' 
+    };
+  };
 }
