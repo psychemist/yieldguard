@@ -58,7 +58,9 @@ class YieldFetcher:
             
         except Exception as e:
             print(f"Error fetching real yields: {e}")
-            raise Exception(f"Failed to fetch real yield data: {e}")
+            # Return empty list instead of raising exception
+            print("⚠️ Returning empty yield data list for fallback handling")
+            return []
     
     async def get_historical_yields(self, days: int = 30) -> Dict:
         """

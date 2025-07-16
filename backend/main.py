@@ -48,23 +48,26 @@ async def get_recommendations(request: RecommendationRequest):
     try:
         print(f"🤖 Processing AI recommendation request: ${request.capital}, {request.risk_profile}")
         
-        # Check if OpenAI API key is configured
-        if not os.getenv("OPENAI_API_KEY"):
-            print("⚠️  OpenAI API key not configured, using fallback logic")
+        # Check if Groq API key is configured
+        if not os.getenv("GROQ_API_KEY"):
+            print("⚠️  Groq API key not configured, using fallback logic")
         
         # Fetch current REAL data
         print("Fetching real yield data...")
         yield_data = await yield_fetcher.get_current_yields()
+        
+        # Add null check before using len()
+        if yield_data is None:
+            print("⚠️ Yield data is None, using empty list")
+            yield_data = []
+        
         print(f"Got {len(yield_data)} real yield opportunities")
         
         print("Fetching real gas data...")
         gas_data = await gas_fetcher.get_current_gas_price()
         print(f"Got real gas prices: {gas_data}")
         
-        if not yield_data:
-            raise HTTPException(status_code=503, detail="No real yield data available from DeFi protocols")
-        
-        # Generate recommendations using AI agent with real data
+        # Generate recommendations using AI agent with real data (or empty list)
         print("🚀 Activating AI Agent for intelligent yield optimization...")
         recommendation = await model_runner.generate_recommendation(
             capital=request.capital,

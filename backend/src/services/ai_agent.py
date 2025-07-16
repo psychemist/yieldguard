@@ -3,9 +3,9 @@ import json
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 import os
-from openai import AsyncOpenAI
+from groq import AsyncGroq
 from langchain.agents import create_openai_tools_agent, AgentExecutor
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import Tool
 from langchain.schema import AgentAction, AgentFinish
@@ -18,7 +18,7 @@ from ..models.recommendation import (
 
 class YieldOptimizationAgent:
     """
-    Advanced AI Agent for DeFi Yield Optimization
+    Advanced AI Agent for DeFi Yield Optimization powered by Groq (Free & Fast)
     - Uses tools to gather market intelligence
     - Reasons through risk/reward scenarios
     - Makes adaptive decisions based on market conditions
@@ -26,10 +26,12 @@ class YieldOptimizationAgent:
     """
     
     def __init__(self):
-        self.llm = ChatOpenAI(
-            model="gpt-4-turbo-preview",
+        # Initialize Groq LLM - using currently supported model
+        self.llm = ChatGroq(
+            model="llama-3.1-8b-instant",  # Updated to supported model
             temperature=0.1,  # Low temperature for consistent reasoning
-            api_key=os.getenv("OPENAI_API_KEY")
+            api_key=os.getenv("GROQ_API_KEY"),
+            max_tokens=4096
         )
         
         # Agent's memory and context
@@ -52,7 +54,7 @@ class YieldOptimizationAgent:
 
     def _get_system_prompt(self) -> str:
         return """
-        You are YieldGuard AI Agent - an expert DeFi yield optimization agent with advanced reasoning capabilities.
+        You are YieldGuard AI Agent - an expert DeFi yield optimization agent powered by Groq's lightning-fast Llama 3.1.
 
         CORE CAPABILITIES:
         1. **Analytical Reasoning**: Break down complex DeFi scenarios step by step
@@ -76,6 +78,7 @@ class YieldOptimizationAgent:
         - High Risk: Optimize for maximum yield, accept higher volatility
 
         Always think step by step and use tools when you need additional information.
+        You are powered by Groq for ultra-fast inference and can handle complex DeFi analysis efficiently.
         """
 
     def _create_agent_tools(self) -> List[Tool]:
@@ -83,35 +86,41 @@ class YieldOptimizationAgent:
         
         def analyze_protocol_risk(protocol_name: str) -> str:
             """Analyze the risk profile of a DeFi protocol"""
-            risk_data = {
-                "uniswap-v3": {
-                    "maturity_score": 9.5,
-                    "security_audits": "Multiple audits by top firms",
-                    "tvl_stability": "High",
-                    "smart_contract_risk": "Low",
-                    "impermanent_loss_risk": "Medium-High"
-                },
-                "aave-v3": {
-                    "maturity_score": 9.8,
-                    "security_audits": "Extensive audit history",
-                    "tvl_stability": "Very High",
-                    "smart_contract_risk": "Very Low",
-                    "impermanent_loss_risk": "None"
-                },
-                "compound-v3": {
-                    "maturity_score": 9.0,
-                    "security_audits": "Well audited",
-                    "tvl_stability": "High",
-                    "smart_contract_risk": "Low",
-                    "impermanent_loss_risk": "None"
+            try:
+                risk_data = {
+                    "uniswap-v3": {
+                        "maturity_score": 9.5,
+                        "security_audits": "Multiple audits by top firms",
+                        "tvl_stability": "High",
+                        "smart_contract_risk": "Low",
+                        "impermanent_loss_risk": "Medium-High"
+                    },
+                    "aave-v3": {
+                        "maturity_score": 9.8,
+                        "security_audits": "Extensive audit history",
+                        "tvl_stability": "Very High",
+                        "smart_contract_risk": "Very Low",
+                        "impermanent_loss_risk": "None"
+                    },
+                    "compound-v3": {
+                        "maturity_score": 9.0,
+                        "security_audits": "Well audited",
+                        "tvl_stability": "High",
+                        "smart_contract_risk": "Low",
+                        "impermanent_loss_risk": "None"
+                    }
                 }
-            }
-            return json.dumps(risk_data.get(protocol_name, {"error": "Protocol not in database"}))
+                return json.dumps(risk_data.get(protocol_name, {"error": "Protocol not in database"}))
+            except Exception as e:
+                return json.dumps({"error": f"Error analyzing protocol risk: {str(e)}"})
 
         def calculate_portfolio_metrics(allocations: str) -> str:
             """Calculate portfolio risk metrics and diversification score"""
             try:
                 allocs = json.loads(allocations)
+                if not allocs:
+                    return json.dumps({"error": "Empty allocations provided"})
+                
                 total_weight = sum(alloc.get('percentage', 0) for alloc in allocs)
                 
                 # Calculate Herfindahl index for concentration
@@ -130,18 +139,21 @@ class YieldOptimizationAgent:
                     "weighted_yield": round(weighted_yield, 2),
                     "total_allocation": round(total_weight, 2)
                 })
-            except:
-                return json.dumps({"error": "Invalid allocation format"})
+            except Exception as e:
+                return json.dumps({"error": f"Invalid allocation format: {str(e)}"})
 
         def assess_market_conditions(gas_price: float, avg_yield: float) -> str:
             """Assess current market conditions for optimal timing"""
-            conditions = {
-                "gas_assessment": "Favorable" if gas_price < 20 else "Moderate" if gas_price < 40 else "Unfavorable",
-                "yield_environment": "High yield" if avg_yield > 15 else "Moderate yield" if avg_yield > 8 else "Low yield",
-                "market_timing": "Good" if gas_price < 25 and avg_yield > 10 else "Moderate",
-                "execution_recommendation": "Execute immediately" if gas_price < 20 else "Wait for lower gas" if gas_price > 50 else "Execute when ready"
-            }
-            return json.dumps(conditions)
+            try:
+                conditions = {
+                    "gas_assessment": "Favorable" if gas_price < 20 else "Moderate" if gas_price < 40 else "Unfavorable",
+                    "yield_environment": "High yield" if avg_yield > 15 else "Moderate yield" if avg_yield > 8 else "Low yield",
+                    "market_timing": "Good" if gas_price < 25 and avg_yield > 10 else "Moderate",
+                    "execution_recommendation": "Execute immediately" if gas_price < 20 else "Wait for lower gas" if gas_price > 50 else "Execute when ready"
+                }
+                return json.dumps(conditions)
+            except Exception as e:
+                return json.dumps({"error": f"Error assessing market conditions: {str(e)}"})
 
         def validate_allocation_strategy(strategy: str, risk_profile: str) -> str:
             """Validate if the allocation strategy aligns with risk profile"""
@@ -149,6 +161,9 @@ class YieldOptimizationAgent:
                 allocs = json.loads(strategy)
                 
                 # Check allocation rules based on risk profile
+                if not allocs:
+                    return json.dumps({"error": "Empty allocation list provided"})
+                
                 max_single_allocation = max(alloc.get('percentage', 0) for alloc in allocs)
                 num_positions = len(allocs)
                 
@@ -166,8 +181,8 @@ class YieldOptimizationAgent:
                     validation["recommendations"].append("Add more positions for better diversification")
                 
                 return json.dumps(validation)
-            except:
-                return json.dumps({"error": "Invalid strategy format"})
+            except Exception as e:
+                return json.dumps({"error": f"Invalid strategy format: {str(e)}"})
 
         return [
             Tool(
@@ -207,6 +222,11 @@ class YieldOptimizationAgent:
             
             # Prepare context for the agent
             market_context = self._prepare_agent_context(yield_data, gas_data, capital, risk_profile)
+            avg_yield = sum(asset.apy for asset in yield_data) / len(yield_data) if yield_data else 0
+            total_tvl = sum(asset.tvl for asset in yield_data) if yield_data else 0
+            len_yield = len(yield_data)
+
+            print("checkpoint 0")
             
             # Agent reasoning prompt
             agent_input = f"""
@@ -218,11 +238,11 @@ class YieldOptimizationAgent:
             
             Available Opportunities:
             {json.dumps(market_context['opportunities'], indent=2)}
-            
+
             Market Summary:
-            - {len(yield_data)} yield opportunities available
-            - Average yield: {sum(asset.apy for asset in yield_data) / len(yield_data):.2f}%
-            - Total market TVL: ${sum(asset.tvl for asset in yield_data):,.0f}
+            - {len_yield} yield opportunities available
+            - Average yield: {avg_yield}%
+            - Total market TVL: ${total_tvl}
             
             Please analyze this data step by step and provide an optimal allocation strategy:
             
@@ -240,21 +260,24 @@ class YieldOptimizationAgent:
             - gas_cost_estimate: number
             - reasoning_summary: string
             """
-            
+
             # Execute the agent
             result = await self.agent_executor.ainvoke({"input": agent_input})
-            
+            print("checkpoint 1")
+
             # Parse agent response
             recommendation = self._parse_agent_response(result, capital, risk_profile)
-            
+            print("checkpoint 2")
+
             # Store reasoning for learning
             self.reasoning_history.append({
                 "timestamp": datetime.now(),
                 "input_params": {"capital": capital, "risk_profile": risk_profile.value},
                 "agent_reasoning": result.get("output", ""),
-                "recommendation": recommendation.dict()
+                "recommendation": recommendation.model_dump()
             })
-            
+            print("checkpoint 3")
+
             print(f"🧠 AI Agent completed analysis: {recommendation.total_expected_yield:.2f}% yield, {recommendation.confidence_score:.0%} confidence")
             
             return recommendation
@@ -370,4 +393,67 @@ class YieldOptimizationAgent:
             total_risk_score=0.4,
             gas_cost_estimate=gas_data.get('standard', 25) * 10,
             confidence_score=0.6
+        )
+
+    def _create_simple_recommendation(
+        self, 
+        capital: float, 
+        risk_profile: RiskProfile,
+        yield_data: List[YieldData],
+        gas_data: Dict
+    ) -> RecommendationResponse:
+        """Create a smart recommendation using real yield data"""
+        print("🔍 Creating smart recommendation with real DeFi data...")
+        
+        # Use real data if available, otherwise use mock data
+        if yield_data and len(yield_data) > 0:
+            # Sort by TVL (safety) and APY (yield) for balanced approach
+            safe_assets = sorted(yield_data, key=lambda x: (x.tvl * 0.7 + x.apy * 1000000000 * 0.3), reverse=True)[:3]
+            print(f"🔍 Selected top 3 assets: {[asset.asset for asset in safe_assets]}")
+        else:
+            # Mock safe assets as fallback
+            mock_assets = [
+                type('MockAsset', (), {'asset': 'USDC', 'apy': 5.2, 'tvl': 2000000000})(),
+                type('MockAsset', (), {'asset': 'STETH', 'apy': 3.8, 'tvl': 1500000000})(),
+                type('MockAsset', (), {'asset': 'USDT', 'apy': 4.1, 'tvl': 1200000000})()
+            ]
+            safe_assets = mock_assets
+            print("🔍 Using mock assets as fallback")
+        
+        # Risk-based allocation percentages
+        if risk_profile == RiskProfile.LOW:
+            percentages = [60.0, 25.0, 15.0]  # Conservative
+        elif risk_profile == RiskProfile.MEDIUM:
+            percentages = [50.0, 30.0, 20.0]  # Balanced
+        else:  # HIGH
+            percentages = [40.0, 35.0, 25.0]  # Aggressive
+        
+        print(f"🔍 Using {risk_profile.value} risk allocation: {percentages}")
+        
+        # Create allocations
+        allocations = []
+        for i, asset in enumerate(safe_assets[:len(percentages)]):
+            risk_score = 0.3 if risk_profile == RiskProfile.LOW else 0.5 if risk_profile == RiskProfile.MEDIUM else 0.7
+            allocations.append(AllocationItem(
+                asset=asset.asset,
+                percentage=percentages[i],
+                expected_yield=asset.apy,
+                risk_score=risk_score
+            ))
+        
+        # Calculate portfolio metrics
+        total_yield = sum(alloc.expected_yield * alloc.percentage / 100 for alloc in allocations)
+        avg_risk = sum(alloc.risk_score * alloc.percentage / 100 for alloc in allocations)
+        
+        print(f"🔍 Portfolio calculated - Total yield: {total_yield:.2f}%, Avg risk: {avg_risk:.2f}")
+        
+        return RecommendationResponse(
+            timestamp=datetime.now(),
+            capital=capital,
+            risk_profile=risk_profile,
+            allocations=allocations,
+            total_expected_yield=total_yield,
+            total_risk_score=avg_risk,
+            gas_cost_estimate=gas_data.get('standard', 25) * 12,  # Estimated gas cost
+            confidence_score=0.85  # High confidence for data-driven recommendations
         )

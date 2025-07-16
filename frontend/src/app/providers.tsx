@@ -22,7 +22,7 @@ import { ThemeProvider } from '@/contexts/theme-context';
 
 const config = getDefaultConfig({
   appName: 'YieldGuard Lite',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '', // Use env variable
+  projectId: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || '', // Use env variable
   chains: [mainnet, polygon, optimism, arbitrum, base],
   ssr: true,
 });
