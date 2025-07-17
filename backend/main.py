@@ -21,7 +21,7 @@ app = FastAPI(title="YieldGuard Lite API - AI Powered", version="2.0.0")
 # CORS middleware for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js dev server
+    allow_origins=["http://localhost:3000"], # Next.js dev server
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

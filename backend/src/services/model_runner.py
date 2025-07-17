@@ -12,7 +12,7 @@ from ..models.recommendation import (
 
 class ModelRunner:
     """
-    AI Agent-Powered Model Runner using LangChain and GPT-4
+    AI Agent-Powered Model Runner using Groq
     - Uses sophisticated AI Agent with reasoning capabilities
     - Agent can use tools to gather market intelligence
     - Makes adaptive decisions based on real-time analysis
