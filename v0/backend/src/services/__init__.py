@@ -1,1 +1,0 @@
-# YieldGuard Lite Backend Services
