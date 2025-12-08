@@ -1,30 +1,25 @@
 'use client';
 
 import { createAppKit } from '@reown/appkit/react';
+import type { AppKitNetwork } from '@reown/appkit/networks';
 import { WagmiProvider } from 'wagmi';
 import { arbitrum, mainnet, polygon, optimism, base } from '@reown/appkit/networks';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { ThemeProvider } from '@/contexts/theme-context';
 
-// 0. Setup queryClient
 const queryClient = new QueryClient();
+const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || '';
 
-// 1. Get projectId from https://cloud.reown.com
-const projectId = 'ca6398f2043be1d89cc89ac1dc12c56f';
-
-// 2. Create a metadata object - optional
 const metadata = {
-  name: 'YieldGuard',
+  name: 'YieldGuard Lite',
   description: 'AI-Powered DeFi Yield Optimization MVP',
-  url: 'https://yieldguard.app', // origin must match your domain & subdomain
+  url: 'https://yieldguard.app',
   icons: ['https://assets.reown.com/reown-profile-pic.png']
 };
 
-// 3. Set the networks
-const networks = [mainnet, arbitrum, polygon, optimism, base];
+const networks: [AppKitNetwork, ...AppKitNetwork[]] = [mainnet, arbitrum, polygon, optimism, base];
 
-// 4. Create Wagmi Adapter
 const wagmiAdapter = new WagmiAdapter({
   networks,
   projectId,
@@ -38,7 +33,7 @@ createAppKit({
   projectId,
   metadata,
   features: {
-    analytics: true // Optional - defaults to your Cloud configuration
+    analytics: true
   }
 });
 
