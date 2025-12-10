@@ -12,6 +12,7 @@ import { Loader2, Calculator, TrendingUp, AlertTriangle, CheckCircle, Eye, Info 
 
 interface AllocationItem {
   asset: string;
+  pool_id: string;
   percentage: number;
   expected_yield: number;
   risk_score: number;

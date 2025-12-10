@@ -1,20 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAppKit } from '@reown/appkit/react';
 import { useAccount } from 'wagmi';
-import YieldDashboard from '@/components/YieldDashboard';
-import StrategyInput from '@/components/StrategyInput';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, Shield, Zap, Wallet } from 'lucide-react';
+import YieldDashboard from '@/components/YieldDashboard';
+import StrategyInput from '@/components/StrategyInput';
+
+interface Recommendation {
+  timestamp: string;
+  capital: number;
+  risk_profile: string;
+  allocations: Array<{
+    asset: string;
+    pool_id: string;
+    percentage: number;
+    expected_yield: number;
+    risk_score: number;
+  }>;
+  total_expected_yield: number;
+  total_risk_score: number;
+  gas_cost_estimate: number;
+  confidence_score: number;
+}
 
 export default function Home() {
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const { open } = useAppKit();
-  const [recommendation, setRecommendation] = useState(null);
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
 
@@ -104,8 +121,6 @@ export default function Home() {
           <TabsContent value="dashboard">
             <YieldDashboard 
               recommendation={recommendation}
-              isConnected={isConnected}
-              walletAddress={address}
             />
           </TabsContent>
           

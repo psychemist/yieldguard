@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Label } from 'recharts';
+import { TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
 interface AllocationItem {
   asset: string;
+  pool_id: string;
   percentage: number;
   expected_yield: number;
   risk_score: number;
@@ -23,48 +24,84 @@ interface Recommendation {
   confidence_score: number;
 }
 
-interface Props {
-  recommendation: Recommendation | null;
-  isConnected: boolean;
-  walletAddress?: string;
+interface GasDataType {
+  slow: number;
+  standard: number;
+  fast: number;
 }
 
-export default function YieldDashboard({ recommendation, isConnected, walletAddress }: Props) {
-  const [historicalData, setHistoricalData] = useState([]);
-  const [gasData, setGasData] = useState(null);
+interface ChartDataPoint {
+  date: string;
+  [key: string]: string | number;
+}
+
+interface Props {
+  recommendation: Recommendation | null;
+}
+
+export default function YieldDashboard({ recommendation }: Props) {
+  const [historicalData, setHistoricalData] = useState<ChartDataPoint[]>([]);
+  const [gasData, setGasData] = useState<GasDataType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recommendedAssets, setRecommendedAssets] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchHistoricalData();
     fetchGasData();
   }, []);
 
-  const fetchHistoricalData = async () => {
+  // Fetch historical data when recommendation changes
+  useEffect(() => {
+    if (recommendation?.allocations) {
+      const assets = recommendation.allocations.map(a => a.asset);
+      const poolIds = recommendation.allocations.map(a => a.pool_id);
+      setRecommendedAssets(assets);
+      fetchHistoricalData(poolIds, assets);
+    } else {
+      // Show top pools if no recommendation yet
+      fetchHistoricalData();
+    }
+  }, [recommendation]);
+
+  const fetchHistoricalData = async (poolIds?: string[], assetNames?: string[]) => {
     try {
-      console.log('Fetching REAL historical data from backend...');
-      const response = await fetch('http://localhost:8000/yields/historical?days=30');
+      let url = 'http://localhost:8000/yields/historical?days=30';
+      if (poolIds && poolIds.length > 0) {
+        url += `&pool_ids=${poolIds.join(',')}`;
+      }
+      
+      console.log('Fetching REAL historical data from backend...', poolIds ? `for pools: ${poolIds.join(', ')}` : 'for top pools');
+      const response = await fetch(url);
       
       if (!response.ok) {
         console.error(`API error: ${response.status}`);
-        setHistoricalData([]); // Set empty array instead of throwing
+        setHistoricalData([]);
         return;
       }
       
       const data = await response.json();
       console.log('Received real historical data:', data);
       
-      // Transform REAL data for chart - handle the actual API response structure
+      // Transform REAL data for chart
       if (data.dates && data.yields) {
-        const chartData = data.dates.map((date: string, index: number) => {
-          const dataPoint: any = { date };
-          Object.keys(data.yields).forEach(assetName => {
-            dataPoint[assetName] = data.yields[assetName]?.[index] || 0;
+        // If we requested specific pools, trust the backend response keys
+        const keysToRender = Object.keys(data.yields);
+        
+        const chartData: ChartDataPoint[] = data.dates.map((date: string, index: number) => {
+          const dataPoint: ChartDataPoint = { date };
+          
+          keysToRender.forEach(key => {
+            if (data.yields[key]) {
+              dataPoint[key] = data.yields[key]?.[index] || 0;
+            }
           });
           return dataPoint;
         });
         
         setHistoricalData(chartData);
-        console.log(`Successfully loaded ${chartData.length} days of real historical data`);
+        // If we have specific assets recommended, keep them for the legend title
+        // otherwise default to empty to show "top pools" text
+        setRecommendedAssets(assetNames || []);
+        console.log(`Successfully loaded ${chartData.length} days of historical data`);
       } else {
         console.warn('No historical data structure found, using empty array');
         setHistoricalData([]);
@@ -72,7 +109,7 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
       
     } catch (error) {
       console.error('Failed to fetch real historical data:', error);
-      setHistoricalData([]); // Gracefully handle errors
+      setHistoricalData([]);
     } finally {
       setLoading(false);
     }
@@ -81,20 +118,24 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
   const fetchGasData = async () => {
     try {
       console.log('Fetching REAL gas data from backend...');
-      const response = await fetch('http://localhost:8000/gas/current');
+      const response = await fetch('http://localhost:8000/gas');
       
       if (!response.ok) {
-        console.error(`Gas API error: ${response.status}`);
+        console.log(`Gas API error: ${response.status}`);
         return;
       }
       
       const data = await response.json();
       console.log('Received real gas data:', data);
       
-      setGasData(data);
+      // Transform API response to match expected format
+      setGasData({
+        slow: data.slow_gwei,
+        standard: data.standard_gwei,
+        fast: data.fast_gwei
+      });
     } catch (error) {
       console.error('Failed to fetch real gas data:', error);
-      // Don't set gasData, component will handle null state
     }
   };
 
@@ -202,28 +243,64 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
         <Card>
           <CardHeader>
             <CardTitle>Historical Yields</CardTitle>
-            <CardDescription>Past 30 days yield performance from real DeFi protocols</CardDescription>
+            <CardDescription>
+              {recommendedAssets.length > 0 
+                ? `30-day APY trends for your AI-recommended assets` 
+                : `Past 30 days yield performance from top DeFi protocols`}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {historicalData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={historicalData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  {/* Dynamically render lines for all real assets */}
-                  {Object.keys(historicalData[0] || {}).filter(key => key !== 'date').map((assetName, index) => (
-                    <Line 
-                      key={assetName}
-                      type="monotone" 
-                      dataKey={assetName} 
-                      stroke={pieColors[index % pieColors.length]} 
-                      strokeWidth={2} 
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={historicalData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date">
+                      <Label value="Date" position="insideBottom" dy={10} />
+                    </XAxis>
+                    <YAxis tickFormatter={(value) => `${value}%`}>
+                      <Label value="APY (%)" angle={-90} position="insideLeft" dy={-10} />
+                    </YAxis>
+                    <Tooltip formatter={(value: number) => `${value}% APY`} />
+                    {/* Dynamically render lines for all real assets */}
+                    {Object.keys(historicalData[0] || {}).filter(key => key !== 'date').map((assetName, index) => (
+                      <Line 
+                        key={assetName}
+                        type="monotone" 
+                        dataKey={assetName} 
+                        stroke={pieColors[index % pieColors.length]} 
+                        strokeWidth={2} 
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+                
+                {/* Asset Legend & Info */}
+                <div className="mt-4 space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {Object.keys(historicalData[0] || {}).filter(key => key !== 'date').map((assetName, index) => (
+                      <div key={assetName} className="flex items-center gap-1 text-xs">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: pieColors[index % pieColors.length] }}
+                        />
+                        <span className="font-medium">{assetName}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {recommendedAssets.length > 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      📊 <strong>Showing historical performance</strong> for assets recommended by our AI based on your ${recommendation?.capital.toLocaleString()} investment and {recommendation?.risk_profile} risk profile. 
+                      This real on-chain data helps you understand yield stability and trends before deploying capital.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      📊 <strong>Showing top DeFi protocols by TVL.</strong> Get a personalized AI recommendation to see historical trends for assets matched to your risk profile and capital.
+                    </p>
+                  )}
+                </div>
+              </>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                 <div className="text-center">
@@ -259,7 +336,8 @@ export default function YieldDashboard({ recommendation, isConnected, walletAddr
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percentage }) => `${name}: ${percentage}%`}
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      label={({ name, percentage }: any) => `${name}: ${percentage}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="percentage"
