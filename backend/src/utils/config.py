@@ -10,13 +10,13 @@ from pydantic import BaseModel
 class APIConfig(BaseModel):
     """External API endpoints configuration"""
 
-    defillama_yields: str = "https://yields.llama.fi/pools"
-    defillama_chart: str = "https://yields.llama.fi/chart"
-    defillama_protocol: str = "https://api.llama.fi/protocol"
-    coingecko_prices: str = "https://api.coingecko.com/api/v3/simple/price"
-    coingecko_market: str = "https://api.coingecko.com/api/v3/coins/markets"
-    etherscan_gas: str = "https://api.etherscan.io/v2/api"
-    owlracle_gas: str = "https://api.owlracle.info/v4/eth/gas"
+    defillama_yields: str = f"{os.getenv('DEFILLAMA_YIELD_BASE')}/pools"
+    defillama_chart: str = f"{os.getenv('DEFILLAMA_YIELD_BASE')}/chart"
+    defillama_protocol: str = f"{os.getenv('DEFILLAMA_API_BASE')}/protocol"
+    coingecko_prices: str = f"{os.getenv('COINGECKO_API_BASE')}/simple/price"
+    coingecko_market: str = f"{os.getenv('COINGECKO_API_BASE')}/coins/markets"
+    etherscan_gas: str = f"{os.getenv('ETHERSCAN_API_URL')}"
+    owlracle_gas: str = f"{os.getenv('OWLRACLE_API_BASE')}/gas"
 
 
 class CacheConfig(BaseModel):
