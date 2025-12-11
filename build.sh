@@ -41,7 +41,7 @@ if [ ! -d "node_modules" ]; then
     echo "   Installing dependencies..."
     npm install
 fi
-npm run build &
+npm run build && npm run start &
 FRONTEND_PID=$!
 echo "   Frontend started on http://localhost:3000 (PID: $FRONTEND_PID)"
 
