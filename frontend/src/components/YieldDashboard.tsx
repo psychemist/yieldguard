@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { TrendingUp, AlertTriangle, CheckCircle, Clock, Info } from 'lucide-react'; 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Label } from 'recharts';
-import { TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 interface AllocationItem {
   asset: string;
@@ -77,13 +79,13 @@ export default function YieldDashboard({ recommendation }: Props) {
         setHistoricalData([]);
         return;
       }
-      
+
       const data = await response.json();
       console.log('Received real historical data:', data);
-      
-      // Transform REAL data for chart
+
+      // Transform data for chart
       if (data.dates && data.yields) {
-        // If we requested specific pools, trust the backend response keys
+        // If we requested specific pools, use backend response keys
         const keysToRender = Object.keys(data.yields);
         
         const chartData: ChartDataPoint[] = data.dates.map((date: string, index: number) => {
@@ -98,7 +100,7 @@ export default function YieldDashboard({ recommendation }: Props) {
         });
         
         setHistoricalData(chartData);
-        // If we have specific assets recommended, keep them for the legend title
+        // If specific assets were recommendeded, keep them for the legend title
         // otherwise default to empty to show "top pools" text
         setRecommendedAssets(assetNames || []);
         console.log(`Successfully loaded ${chartData.length} days of historical data`);
@@ -124,10 +126,10 @@ export default function YieldDashboard({ recommendation }: Props) {
         console.log(`Gas API error: ${response.status}`);
         return;
       }
-      
+
       const data = await response.json();
       console.log('Received real gas data:', data);
-      
+
       // Transform API response to match expected format
       setGasData({
         slow: data.slow_gwei,
@@ -152,6 +154,52 @@ export default function YieldDashboard({ recommendation }: Props) {
   };
 
   const pieColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+  // Helper function to format protocol names cleanly
+  const formatProtocolName = (name: string): string => {
+    // Extract protocol and token parts
+    const match = name.match(/^([^(]+)\s*\(([^)]+)\)$/);
+    if (!match) {
+      // No parentheses, just capitalize first letter
+      return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    }
+
+    const [, protocolPart, tokenSymbol] = match;
+    const tokenUpper = tokenSymbol.toUpperCase();
+    
+    // Clean up protocol name - remove token suffix if present
+    let cleanProtocol = protocolPart.trim();
+    
+    // Check if protocol ends with a token-like suffix (e.g., "-usde", "-uscc", "-usdt")
+    const tokenLower = tokenSymbol.toLowerCase();
+    const suffixPattern = new RegExp(`[-_]?${tokenLower}$`, 'i');
+    cleanProtocol = cleanProtocol.replace(suffixPattern, '');
+    
+    // Check if protocol contains any part of the token
+    const tokenBase = tokenLower.replace(/[0-9]/g, ''); // Remove numbers from token
+    const basePattern = new RegExp(`[-_]?${tokenBase}[a-z]*$`, 'i');
+    cleanProtocol = cleanProtocol.replace(basePattern, '');
+    
+    // Capitalize protocol name (handle dashes)
+    cleanProtocol = cleanProtocol.split('-').map(part => 
+      part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+    ).join('-');
+    
+    // Remove trailing dash if any
+    cleanProtocol = cleanProtocol.replace(/-$/, '');
+    
+    return `${cleanProtocol} (${tokenUpper})`;
+  };
+
+  // Create a mapping from pool_id or asset to index for consistent colors
+  const getColorIndex = (key: string): number => {
+    if (!recommendation?.allocations) return 0;
+    // Find index in allocations array by matching asset name in the key
+    const index = recommendation.allocations.findIndex(alloc => 
+      key.toLowerCase().includes(alloc.asset.toLowerCase())
+    );
+    return index >= 0 ? index : 0;
+  };
 
   if (loading) {
     return (
@@ -250,43 +298,73 @@ export default function YieldDashboard({ recommendation }: Props) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {historicalData.length > 0 ? (
+            {loading ? (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+                <div className="text-center">
+                  <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50 animate-pulse" />
+                  <p>Loading real historical data...</p>
+                </div>
+              </div>
+            ) : historicalData.length > 0 ? (
               <>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={historicalData}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date">
-                      <Label value="Date" position="insideBottom" dy={10} />
+                    <XAxis
+                      dataKey="date"
+                      stroke="#888888"
+                      fontSize={12}
+                      tickLine={true}
+                      axisLine={true}
+                    >
+                      <Label value="Date" position="insideBottom" dy={10} className="fill-foreground" /> 
                     </XAxis>
-                    <YAxis tickFormatter={(value) => `${value}%`}>
-                      <Label value="APY (%)" angle={-90} position="insideLeft" dy={-10} />
+                    <YAxis
+                      tickFormatter={(value) => `${value}%`}
+                      stroke="#888888"
+                      fontSize={12}
+                      tickLine={true}
+                      axisLine={true}
+                    >
+                      <Label value="APY (%)" angle={-90} position="insideLeft" dy={-10} className="fill-foreground" />
                     </YAxis>
-                    <Tooltip formatter={(value: number) => `${value}% APY`} />
-                    {/* Dynamically render lines for all real assets */}
-                    {Object.keys(historicalData[0] || {}).filter(key => key !== 'date').map((assetName, index) => (
-                      <Line 
-                        key={assetName}
-                        type="monotone" 
-                        dataKey={assetName} 
-                        stroke={pieColors[index % pieColors.length]} 
-                        strokeWidth={2} 
-                      />
-                    ))}
+                    <Tooltip
+                      formatter={(value: number) => [`${value}%`, "APY"]}
+                      labelStyle={{ color: "black" }}
+                      contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                    /> 
+                    {/* Dynamically render lines for all real assets - colors match pie chart order */}
+                    {Object.keys(historicalData[0] || {}).filter(key => key !== 'date').map((assetName) => {
+                      const colorIndex = getColorIndex(assetName);
+                      return (
+                        <Line 
+                          key={assetName}
+                          type="monotone" 
+                          dataKey={assetName} 
+                          stroke={pieColors[colorIndex % pieColors.length]} 
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      );
+                    })}
                   </LineChart>
                 </ResponsiveContainer>
-                
+
                 {/* Asset Legend & Info */}
                 <div className="mt-4 space-y-2">
                   <div className="flex flex-wrap gap-2">
-                    {Object.keys(historicalData[0] || {}).filter(key => key !== 'date').map((assetName, index) => (
-                      <div key={assetName} className="flex items-center gap-1 text-xs">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: pieColors[index % pieColors.length] }}
-                        />
-                        <span className="font-medium">{assetName}</span>
-                      </div>
-                    ))}
+                    {Object.keys(historicalData[0] || {}).filter(key => key !== 'date').map((assetName) => {
+                      const colorIndex = getColorIndex(assetName);
+                      return (
+                        <div key={assetName} className="flex items-center gap-1 text-xs">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: pieColors[colorIndex % pieColors.length] }}
+                          />
+                          <span className="font-medium text-foreground">{formatProtocolName(assetName)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                   
                   {recommendedAssets.length > 0 ? (
@@ -304,8 +382,9 @@ export default function YieldDashboard({ recommendation }: Props) {
             ) : (
               <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                 <div className="text-center">
-                  <TrendingUp className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Loading real historical data...</p>
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No historical data available.</p>
+                  <p className="text-xs mt-1">Try refreshing or checking back later.</p> 
                 </div>
               </div>
             )}
@@ -349,41 +428,84 @@ export default function YieldDashboard({ recommendation }: Props) {
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
-                
-                {/* Asset Details */}
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Asset Details:</h4>
-                  {recommendation.allocations.map((allocation, index) => {
-                    const assetInfo = getAssetDisplayName(allocation.asset);
-                    return (
-                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs">
-                        <div>
-                          <div className="font-medium text-gray-900 dark:text-gray-100">
-                            {assetInfo.name} ({allocation.asset})
-                          </div>
-                          <div className="text-gray-600 dark:text-gray-400">{assetInfo.description}</div>
+
+                {/* Asset Details Modal Trigger */}
+                <div className="flex justify-center mt-4">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="w-full">
+                        <Info className="mr-2 h-4 w-4" />
+                        View Asset Details
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Portfolio Allocation Details</DialogTitle>
+                        <DialogDescription>
+                          Detailed breakdown of the recommended assets and their risk/reward profiles.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-3 mt-4">
+                        {recommendation.allocations.map((allocation, index) => {
+                          const assetInfo = getAssetDisplayName(allocation.asset);
+                            return (
+                              <div key={index} className="flex flex-col sm:flex-row sm:items-center p-4 bg-secondary/50 rounded-lg gap-4">
+                                {/* Asset Info - fixed width */}
+                                <div className="space-y-1 sm:w-1/3 sm:min-w-[200px]">
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="w-3 h-3 rounded-full shrink-0"
+                                      style={{ backgroundColor: pieColors[index % pieColors.length] }}
+                                    />
+                                    <span className="font-semibold text-foreground">
+                                      {assetInfo.name} ({allocation.asset})
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground pl-5">{assetInfo.description}</p>
+                                </div>
+                                {/* Stats Grid - equal width columns, centered */}
+                                <div className="grid grid-cols-4 gap-2 text-sm flex-1">
+                                  <div className="text-center">
+                                    <div className="text-muted-foreground text-xs">Allocation</div>
+                                    <div className="font-medium text-foreground">{allocation.percentage.toFixed(1)}%</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-muted-foreground text-xs">Value</div>
+                                    <div className="font-medium text-foreground">
+                                      ${((recommendation.capital * allocation.percentage) / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-muted-foreground text-xs">Yield</div>
+                                    <div className="font-medium text-green-600 dark:text-green-400">{allocation.expected_yield.toFixed(2)}% APY</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="text-muted-foreground text-xs">Risk</div>
+                                    <div className={`font-medium ${getRiskColor(allocation.risk_score)}`}>
+                                      {getRiskLabel(allocation.risk_score)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div className="text-right">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">{allocation.percentage.toFixed(1)}%</div>
-                          <div className="text-green-600 dark:text-green-400">{allocation.expected_yield.toFixed(2)}% APY</div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      </DialogContent>
+                    </Dialog>
+                  </div>
                 </div>
-              </div>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+            <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                 <div className="text-center">
-                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Get AI recommendation to see optimal allocation</p>
-                  <p className="text-xs mt-1">Go to Strategy Builder tab to generate recommendations</p>
+                <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Get AI recommendation to see optimal allocation</p>
+                <p className="text-xs mt-1">Go to Strategy Builder tab to generate recommendations</p>
                 </div>
-              </div>
+            </div>
             )}
-          </CardContent>
+        </CardContent>
         </Card>
-      </div>
+    </div>
 
       {/* Gas Tracker */}
       {gasData && (

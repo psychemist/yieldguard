@@ -186,7 +186,7 @@ export default function StrategyInput({ onRecommendation, loading, setLoading, i
                 </div>
 
                 <div>
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2 text-slate-900">
                     <Info className="h-4 w-4" />
                     Recommended Allocation ({recommendation.allocations.length} assets)
                   </h3>
@@ -194,14 +194,14 @@ export default function StrategyInput({ onRecommendation, loading, setLoading, i
                     {recommendation.allocations.map((allocation, index) => {
                       const assetInfo = getAssetDisplayName(allocation.asset);
                       return (
-                        <div key={index} className="border rounded-lg p-3">
+                        <div key={index} className="border border-slate-200 rounded-lg p-3 bg-white">
                           <div className="flex justify-between items-start mb-2">
                             <div className="flex-1">
-                              <div className="font-medium">{assetInfo.name}</div>
-                              <div className="text-sm text-gray-600">{assetInfo.description}</div>
+                              <div className="font-medium text-slate-900">{assetInfo.name}</div>
+                              <div className="text-sm text-slate-600">{assetInfo.description}</div>
                             </div>
                             <div className="text-right">
-                              <div className="font-bold">{allocation.percentage.toFixed(1)}%</div>
+                              <div className="font-bold text-slate-900">{allocation.percentage.toFixed(1)}%</div>
                               <div className="text-sm text-green-600">{allocation.expected_yield.toFixed(2)}% APY</div>
                             </div>
                           </div>
@@ -352,29 +352,6 @@ export default function StrategyInput({ onRecommendation, loading, setLoading, i
               </>
             )}
           </Button>
-        </CardContent>
-      </Card>
-
-      {/* Protocol Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Supported Protocol</CardTitle>
-          <CardDescription>
-            YieldGuard Lite focuses on Uniswap V3 for the MVP
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h4 className="font-semibold">Uniswap V3</h4>
-              <p className="text-sm text-muted-foreground">
-                Concentrated liquidity AMM on Ethereum
-              </p>
-            </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700">
-              Active
-            </Badge>
-          </div>
         </CardContent>
       </Card>
     </div>
