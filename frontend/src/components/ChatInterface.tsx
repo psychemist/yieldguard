@@ -156,7 +156,7 @@ export default function ChatInterface() {
                 }`}
               >
                 {msg.role !== 'user' && (
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
                     <Bot className="h-5 w-5 text-blue-600" />
                   </div>
                 )}
@@ -172,7 +172,7 @@ export default function ChatInterface() {
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                 </div>
                 {msg.role === 'user' && (
-                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
                     <User className="h-5 w-5 text-slate-600" />
                   </div>
                 )}
