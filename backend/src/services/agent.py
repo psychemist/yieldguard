@@ -398,7 +398,6 @@ class YieldOptimizationAgent:
                     "slow": gas_data.slow_gwei,
                     "standard": gas_data.standard_gwei,
                     "fast": gas_data.fast_gwei,
-                    "instant": gas_data.instant_gwei,
                 },
                 "eth_price_usd": gas_data.eth_price_usd,
                 "recommendation": "standard" if gas_data.standard_gwei < 50 else "slow",
