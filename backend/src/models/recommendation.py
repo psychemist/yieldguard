@@ -19,6 +19,7 @@ class RecommendationRequest(BaseModel):
 
 class AllocationItem(BaseModel):
     asset: str
+    pool_id: str | None = None
     percentage: float
     expected_yield: float
     risk_score: float
@@ -38,6 +39,7 @@ class RecommendationResponse(BaseModel):
 class YieldData(BaseModel):
     protocol: str
     asset: str
+    pool_id: str | None = None
     apy: float
     tvl: float
     timestamp: datetime

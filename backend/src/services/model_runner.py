@@ -51,6 +51,7 @@ class ModelRunner:
                 allocations.append(
                     AllocationItem(
                         asset=alloc.get("symbol", "Unknown"),
+                        pool_id=alloc.get("pool_id"),
                         percentage=alloc.get("allocation_pct", 0),
                         expected_yield=alloc.get("apy", 0),
                         risk_score=self._estimate_risk_score(alloc, risk_profile),
@@ -123,8 +124,30 @@ class ModelRunner:
 
         if not yield_data:
             yield_data = [
-                YieldData(protocol="Aave", asset="USDC", apy=3.5, tvl=1e9, timestamp=datetime.now()),
-                YieldData(protocol="Compound", asset="USDT", apy=2.8, tvl=8e8, timestamp=datetime.now()),
+                YieldData(
+                    protocol="Uniswap",
+                    asset="ETH",
+                    pool_id="us123456-ethpool",
+                    apy=4.2,
+                    tvl=5e8,
+                    timestamp=datetime.now(),
+                ),
+                YieldData(
+                    protocol="Aave",
+                    asset="USDC",
+                    pool_id="aa70268e-4b52-42bf-a116-608b370f9501",
+                    apy=3.5,
+                    tvl=1e9,
+                    timestamp=datetime.now(),
+                ),
+                YieldData(
+                    protocol="Compound",
+                    asset="USDT",
+                    pool_id="d1d9dd97-15d2-4933-912f-6b583f81e360",
+                    apy=2.8,
+                    tvl=8e8,
+                    timestamp=datetime.now(),
+                ),
             ]
 
         # Take top 3 by TVL
@@ -135,7 +158,13 @@ class ModelRunner:
 
         for i, asset in enumerate(safe_assets):
             allocations.append(
-                AllocationItem(asset=asset.asset, percentage=percentages[i], expected_yield=asset.apy, risk_score=0.4)
+                AllocationItem(
+                    asset=asset.asset,
+                    pool_id=asset.pool_id,
+                    percentage=percentages[i],
+                    expected_yield=asset.apy,
+                    risk_score=0.4,
+                )
             )
 
         total_yield = sum(alloc.expected_yield * alloc.percentage / 100 for alloc in allocations)
@@ -150,13 +179,6 @@ class ModelRunner:
             gas_cost_estimate=gas_data.get("standard", 25) * 10 if gas_data else 250,
             confidence_score=0.6,
         )
-
-    async def chat(self, message: str) -> dict:
-        """
-        Process a natural language request using full agentic capabilities.
-        Returns the full response including planning and ReAct trace.
-        """
-        return await self.agent.process_request(message)
 
     def get_agent_status(self) -> dict:
         """Get current agent state."""

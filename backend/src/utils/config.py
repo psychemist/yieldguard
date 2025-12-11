@@ -22,7 +22,7 @@ class APIConfig(BaseModel):
 class CacheConfig(BaseModel):
     """Caching configuration"""
 
-    yield_ttl_seconds: int = 120  # 2 minutes (reduced for more frequent updates during testing)
+    yield_ttl_seconds: int = 300 
     gas_ttl_seconds: int = 60  # 1 minute
     market_ttl_seconds: int = 300  # 5 minutes
     historical_ttl_seconds: int = 3600  # 1 hour
