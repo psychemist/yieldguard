@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, AlertTriangle, CheckCircle, Clock, Info } from 'lucide-react'; 
+import { TrendingUp, AlertTriangle, CheckCircle, Clock, Info, MessageSquare, Sparkles } from 'lucide-react'; 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Label } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -39,9 +39,11 @@ interface ChartDataPoint {
 
 interface Props {
   recommendation: Recommendation | null;
+  onNavigateToStrategy: () => void;
+  onNavigateToChat: () => void;
 }
 
-export default function YieldDashboard({ recommendation }: Props) {
+export default function YieldDashboard({ recommendation, onNavigateToStrategy, onNavigateToChat }: Props) {
   const [historicalData, setHistoricalData] = useState<ChartDataPoint[]>([]);
   const [gasData, setGasData] = useState<GasDataType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -192,15 +194,20 @@ export default function YieldDashboard({ recommendation }: Props) {
   };
 
   // Create a mapping from pool_id or asset to index for consistent colors
-  const getColorIndex = (key: string): number => {
-    if (!recommendation?.allocations) return 0;
-    // Find index in allocations array by matching asset name in the key
-    const index = recommendation.allocations.findIndex(alloc => 
-      key.toLowerCase().includes(alloc.asset.toLowerCase())
-    );
-    return index >= 0 ? index : 0;
-  };
-
+    const getColorIndex = (key: string): number => {
+      if (recommendation?.allocations && recommendation.allocations.length > 0) {
+        // If recommendation exists, find index in allocations array
+        const index = recommendation.allocations.findIndex(alloc =>
+          key.toLowerCase().includes(alloc.asset.toLowerCase())
+        );
+        return index >= 0 ? index : 0;
+      } else {
+        // If no recommendation, assign colors based on the order of assets in historicalData
+        const historicalAssetKeys = Object.keys(historicalData[0] || {}).filter(k => k !== 'date');
+        const index = historicalAssetKeys.indexOf(key);
+        return index >= 0 ? index : 0;
+      }
+    };
   if (loading) {
     return (
       <div className="space-y-6">
@@ -231,7 +238,7 @@ export default function YieldDashboard({ recommendation }: Props) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {recommendation ? `${recommendation.total_expected_yield.toFixed(2)}%` : '12.5%'}
+              {recommendation ? `${recommendation.total_expected_yield.toFixed(2)}%` : '--%'}
             </div>
             <p className="text-xs text-muted-foreground">
               Annual percentage yield
@@ -245,8 +252,8 @@ export default function YieldDashboard({ recommendation }: Props) {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${getRiskColor(recommendation?.total_risk_score || 0.4)}`}>
-              {getRiskLabel(recommendation?.total_risk_score || 0.4)}
+            <div className={`text-2xl font-bold ${getRiskColor(recommendation?.total_risk_score || 0.0)}`}>
+              {getRiskLabel(recommendation?.total_risk_score || 0.0)}
             </div>
             <p className="text-xs text-muted-foreground">
               Overall portfolio risk
@@ -261,7 +268,7 @@ export default function YieldDashboard({ recommendation }: Props) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${recommendation ? recommendation.gas_cost_estimate.toFixed(2) : '45.00'}
+              ${recommendation ? recommendation.gas_cost_estimate.toFixed(2) : '--'}
             </div>
             <p className="text-xs text-muted-foreground">
               Estimated transaction cost
@@ -276,7 +283,7 @@ export default function YieldDashboard({ recommendation }: Props) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {recommendation ? `${(recommendation.confidence_score * 100).toFixed(0)}%` : '85%'}
+              {recommendation ? `${(recommendation.confidence_score * 100).toFixed(0)}%` : '--%'}
             </div>
             <p className="text-xs text-muted-foreground">
               AI model confidence
@@ -317,7 +324,7 @@ export default function YieldDashboard({ recommendation }: Props) {
                       tickLine={true}
                       axisLine={true}
                     >
-                      <Label value="Date" position="insideBottom" dy={10} className="fill-foreground" /> 
+                    <Label value="DATE" position="insideBottom" dy={10} className="fill-foreground" /> 
                     </XAxis>
                     <YAxis
                       tickFormatter={(value) => `${value}%`}
@@ -499,7 +506,26 @@ export default function YieldDashboard({ recommendation }: Props) {
                 <div className="text-center">
                 <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>Get AI recommendation to see optimal allocation</p>
-                <p className="text-xs mt-1">Go to Strategy Builder tab to generate recommendations</p>
+                <div className="flex gap-3 justify-center mt-4">
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    onClick={onNavigateToStrategy}
+                    className="gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Build Strategy
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    onClick={onNavigateToChat}
+                    className="gap-2"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                    Chat with AI
+                  </Button>
+                </div>
                 </div>
             </div>
             )}

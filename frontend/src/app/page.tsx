@@ -48,10 +48,10 @@ export default function Home() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-4xl font-bold text-slate-900 dark:text-slate-100">
-              YieldGuard Lite
+              YieldGuard
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
-              AI-Powered DeFi Yield Optimization MVP
+              AI-Powered DeFi Yield Optimization Engine
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -123,6 +123,8 @@ export default function Home() {
           <TabsContent value="dashboard">
             <YieldDashboard 
               recommendation={recommendation}
+              onNavigateToStrategy={() => setActiveTab('strategy')}
+              onNavigateToChat={() => setActiveTab('chat')}
             />
           </TabsContent>
           
