@@ -14,7 +14,9 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()
 
 
+from src.models.chat import ChatRequest, ChatResponse
 from src.models.recommendation import RecommendationRequest, RecommendationResponse, YieldData
+from src.services.agent import get_agent
 from src.services.analyzer import yield_analyzer
 from src.services.data_service import data_service
 from src.services.model_runner import ModelRunner
@@ -41,6 +43,7 @@ app.add_middleware(
 )
 
 model_runner = ModelRunner()
+agent = get_agent()
 
 
 @app.get("/")
@@ -76,7 +79,14 @@ async def get_recommendations(request: RecommendationRequest):
 
         # Convert to format expected by model runner
         yield_data = [
-            YieldData(protocol=p.protocol, asset=p.symbol, apy=p.apy, tvl=p.tvl_usd, timestamp=datetime.now())
+            YieldData(
+                protocol=p.protocol,
+                asset=p.symbol,
+                pool_id=p.pool_id,
+                apy=p.apy,
+                tvl=p.tvl_usd,
+                timestamp=datetime.now(),
+            )
             for p in pools
         ]
 
@@ -270,20 +280,28 @@ async def get_market_analysis():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/protocols")
-async def get_protocols():
-    """Get supported protocols."""
-    return {
-        "protocols": [
-            {
-                "id": "uniswap-v3",
-                "name": "Uniswap V3",
-                "chain": "Ethereum",
-                "type": "AMM/DEX",
-                "features": ["Concentrated Liquidity", "Fee Tiers", "NFT Positions"],
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """
+    Chat with the AI agent for tailored advice.
+    """
+    try:
+        # If context is provided (e.g. wallet balances), add it to agent memory
+        if request.context and "wallet_assets" in request.context:
+            agent.memory.add_message("system", f"User wallet assets: {request.context['wallet_assets']}")
+
+        result = await agent.process_request(request.message)
+
+        return ChatResponse(
+            response=result["response"],
+            metadata={
+                "tools_used": result.get("tools_used", []),
+                "plan": result.get("plan")
             }
-        ]
-    }
+        )
+    except Exception as e:
+        print(f"❌ Chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ if [ ! -d "venv" ]; then
     python3 -m venv venv
 fi
 source venv/bin/activate
-pip install -q -r requirements.txt
+pip3 install -q -r requirements.txt
 
 # Run in background
 uvicorn main:app --reload --port 8000 &

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { TrendingUp, Shield, Zap, Wallet } from 'lucide-react';
 import YieldDashboard from '@/components/YieldDashboard';
 import StrategyInput from '@/components/StrategyInput';
+import ChatInterface from '@/components/ChatInterface';
 
 interface Recommendation {
   timestamp: string;
@@ -113,9 +114,10 @@ export default function Home() {
 
         {/* Main Dashboard */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="strategy">Strategy Builder</TabsTrigger>
+            <TabsTrigger value="chat">AI Chat</TabsTrigger>
           </TabsList>
           
           <TabsContent value="dashboard">
@@ -132,6 +134,10 @@ export default function Home() {
               isConnected={isConnected}
               onViewDashboard={handleViewDashboard}
             />
+          </TabsContent>
+
+          <TabsContent value="chat">
+            <ChatInterface />
           </TabsContent>
         </Tabs>
       </div>
