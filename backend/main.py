@@ -294,10 +294,7 @@ async def chat_endpoint(request: ChatRequest):
 
         return ChatResponse(
             response=result["response"],
-            metadata={
-                "tools_used": result.get("tools_used", []),
-                "plan": result.get("plan")
-            }
+            metadata={"tools_used": result.get("tools_used", []), "plan": result.get("plan")},
         )
     except Exception as e:
         print(f"❌ Chat error: {e}")

@@ -300,7 +300,7 @@ class YieldAnalyzer:
             factors.append("Medium TVL")
 
         # APY-based risk (unusually high APY = suspicious)
-        if apy > 50:
+        if apy > config.filters.max_apy_percent / 2:  # e.g. > 50%
             risk_score += 0.3
             factors.append(f"Very high APY ({apy:.0f}%) - verify legitimacy")
         elif apy > 20:
@@ -326,53 +326,104 @@ class YieldAnalyzer:
 
         return min(1.0, risk_score), factors
 
+    def _select_top_pools(self, pools: list[dict], count: int, sort_key: str = "apy") -> list[dict]:
+        """Select top pools based on criteria."""
+        # Sort by key (descending)
+        sorted_pools = sorted(pools, key=lambda p: p.get(sort_key, 0), reverse=True)
+        return sorted_pools[:count]
+
     def suggest_allocation(self, risk_profile: str, stance: MarketStance, pools: list[dict]) -> list[dict]:
         """
         Suggest allocation based on risk profile and market stance.
         Returns list of {asset, percentage, reasoning}.
         """
         constraints = self.risk_cfg.risk_profiles.get(risk_profile, self.risk_cfg.risk_profiles["medium"])
+        min_diversification = constraints.get("min_diversification", 2)
+        max_single = constraints["max_single_allocation"]
 
         # Adjust stable preference based on stance
         base_stable = constraints["stable_preference"] * 100
         adjusted_stable = (base_stable + stance.recommended_stable_pct) / 2
+
+        # Ensure we have enough percentage for at least one asset if very low
+        if adjusted_stable < 5 and adjusted_stable > 0:
+            adjusted_stable = 5
+        if adjusted_stable > 95:
+            adjusted_stable = 95
 
         # Separate stable and volatile pools
         stable_pools = [p for p in pools if p.get("il_risk") == "low" or "stable" in p.get("symbol", "").lower()]
         volatile_pools = [p for p in pools if p not in stable_pools]
 
         allocations = []
-        remaining = 100.0
-        max_single = constraints["max_single_allocation"]
+        remaining_portfolio = 100.0
 
-        # Allocate to stable pools first
+        # Calculate target counts
+        # We try to split the diversification requirement between stable and volatile
+        # proportionally to their allocation size, but at least 1 each if available.
+        target_stable_count = max(1, round(min_diversification * (adjusted_stable / 100)))
+        target_volatile_count = max(1, min_diversification - target_stable_count)
+
+        # --- Stable Allocation ---
         if stable_pools and adjusted_stable > 0:
-            stable_allocation = min(remaining, adjusted_stable, max_single)
-            best_stable = max(stable_pools, key=lambda p: p.get("apy", 0))
-            allocations.append(
-                {
-                    "asset": best_stable.get("symbol", "STABLE"),
-                    "percentage": stable_allocation,
-                    "expected_yield": best_stable.get("apy", 0),
-                    "risk_score": 0.2,
-                    "reasoning": f"Stable allocation per {stance.stance.value} stance",
-                }
-            )
-            remaining -= stable_allocation
+            top_stables = self._select_top_pools(stable_pools, target_stable_count, "apy")
 
-        # Allocate remaining to volatile pools
-        if volatile_pools and remaining > 0:
-            volatile_allocation = min(remaining, max_single)
-            best_volatile = max(volatile_pools, key=lambda p: p.get("tvl", 0))
-            allocations.append(
-                {
-                    "asset": best_volatile.get("symbol", "VOLATILE"),
-                    "percentage": volatile_allocation,
-                    "expected_yield": best_volatile.get("apy", 0),
-                    "risk_score": 0.5,
-                    "reasoning": "Higher yield opportunity",
-                }
-            )
+            # Divide allocation among selected pools
+            per_pool_alloc = adjusted_stable / len(top_stables)
+
+            # Cap at max_single
+            if per_pool_alloc > max_single:
+                # If we exceed max_single per pool, we might need more pools.
+                # For this lite version, we just cap it and leave the rest unallocated
+                # (or it flows to volatile, but we want to respect the stable preference).
+                # Better strategy: Add more pools if available.
+                needed_pools = int(adjusted_stable // max_single) + 1
+                if needed_pools > len(top_stables):
+                    top_stables = self._select_top_pools(stable_pools, needed_pools, "apy")
+                    per_pool_alloc = adjusted_stable / len(top_stables)  # Recalculate
+
+                per_pool_alloc = min(per_pool_alloc, max_single)
+
+            for pool in top_stables:
+                allocations.append(
+                    {
+                        "asset": pool.get("symbol", "STABLE"),
+                        "pool_id": pool.get("pool_id"),
+                        "percentage": round(per_pool_alloc, 2),
+                        "expected_yield": pool.get("apy", 0),
+                        "risk_score": 0.2,  # Simplified
+                        "reasoning": f"Stable allocation ({stance.stance.value} stance)",
+                    }
+                )
+                remaining_portfolio -= per_pool_alloc
+
+        # --- Volatile Allocation ---
+        if volatile_pools and remaining_portfolio > 1.0:  # Ignore tiny dust
+            top_volatile = self._select_top_pools(
+                volatile_pools, target_volatile_count, "tvl"
+            )  # Prefer TVL for volatile
+
+            per_pool_alloc = remaining_portfolio / len(top_volatile)
+
+            # Cap at max_single
+            if per_pool_alloc > max_single:
+                needed_pools = int(remaining_portfolio // max_single) + 1
+                if needed_pools > len(top_volatile):
+                    top_volatile = self._select_top_pools(volatile_pools, needed_pools, "tvl")
+                    per_pool_alloc = remaining_portfolio / len(top_volatile)
+                per_pool_alloc = min(per_pool_alloc, max_single)
+
+            for pool in top_volatile:
+                allocations.append(
+                    {
+                        "asset": pool.get("symbol", "VOLATILE"),
+                        "pool_id": pool.get("pool_id"),
+                        "percentage": round(per_pool_alloc, 2),
+                        "expected_yield": pool.get("apy", 0),
+                        "risk_score": 0.5,  # Simplified
+                        "reasoning": "Higher yield opportunity",
+                    }
+                )
 
         return allocations
 

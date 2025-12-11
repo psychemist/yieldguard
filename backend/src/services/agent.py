@@ -554,7 +554,7 @@ class YieldOptimizationAgent:
                 pool._score = (pool.apy * yield_weight) + (tvl_factor * 10 * tvl_weight)
                 # Bonus for gas efficiency on larger investments
                 if investment_amount >= 10000:
-                    pool._score *= (1 + min(gas_efficiency / 100, 0.5))
+                    pool._score *= 1 + min(gas_efficiency / 100, 0.5)
 
             filtered.sort(key=lambda p: p._score, reverse=True)
             selected = filtered[:max_pools]

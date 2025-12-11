@@ -2,6 +2,7 @@
 YieldGuard Lite - Unified Data Service
 Single entry point for all data fetching with caching, rate limiting, and normalization.
 """
+
 import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -15,14 +16,17 @@ from ..utils.config import config
 
 class DataSource(Enum):
     """Data source identifiers"""
+
     DEFILLAMA = "defillama"
     COINGECKO = "coingecko"
     ETHERSCAN = "etherscan"
     OWLRACLE = "owlracle"
 
+
 @dataclass
 class CacheEntry:
     """Cache entry with TTL tracking"""
+
     data: Any
     expires_at: float
     source: DataSource
@@ -31,9 +35,11 @@ class CacheEntry:
     def is_valid(self) -> bool:
         return datetime.now().timestamp() < self.expires_at
 
+
 @dataclass
 class TimeSeries:
     """Normalized time-series data structure"""
+
     timestamps: list[str] = field(default_factory=list)
     values: list[float] = field(default_factory=list)
     source: str = ""
@@ -46,12 +52,14 @@ class TimeSeries:
             "values": self.values,
             "source": self.source,
             "asset": self.asset,
-            "metric": self.metric
+            "metric": self.metric,
         }
+
 
 @dataclass
 class YieldPool:
     """Normalized yield pool data"""
+
     protocol: str
     symbol: str
     chain: str
@@ -72,13 +80,14 @@ class YieldPool:
             "pool_id": self.pool_id,
             "il_risk": self.il_risk,
             "stable_coin": self.stable_coin,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
 
 
 @dataclass
 class GasData:
     """Normalized gas data"""
+
     slow_gwei: float
     standard_gwei: float
     fast_gwei: float
@@ -96,7 +105,7 @@ class GasData:
             "standard_gwei": self.standard_gwei,
             "fast_gwei": self.fast_gwei,
             "eth_price_usd": self.eth_price_usd,
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
 
 
@@ -149,10 +158,7 @@ class DataService:
     def client(self) -> httpx.AsyncClient:
         """Lazy-load HTTP client"""
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                timeout=30.0,
-                headers={"Accept": "application/json"}
-            )
+            self._client = httpx.AsyncClient(timeout=30.0, headers={"Accept": "application/json"})
         return self._client
 
     def _get_cached(self, key: str) -> Any | None:
@@ -164,11 +170,7 @@ class DataService:
 
     def _set_cached(self, key: str, data: Any, ttl_seconds: int, source: DataSource):
         """Cache data with TTL"""
-        self._cache[key] = CacheEntry(
-            data=data,
-            expires_at=datetime.now().timestamp() + ttl_seconds,
-            source=source
-        )
+        self._cache[key] = CacheEntry(data=data, expires_at=datetime.now().timestamp() + ttl_seconds, source=source)
 
     async def _request(self, url: str, source: DataSource, raise_on_403: bool = False) -> dict | None:
         """Make rate-limited HTTP request with error handling"""
@@ -238,21 +240,23 @@ class DataService:
             stable_count = sum(1 for s in stables if s in symbol_upper)
             is_stable = stable_count >= 2 or (stable_count == 1 and "-" not in symbol)
 
-            pools.append(YieldPool(
-                protocol=raw_pool.get("project", "unknown"),
-                symbol=symbol,
-                chain=chain,
-                apy=round(apy, 2),
-                tvl_usd=round(tvl, 0),
-                pool_id=raw_pool.get("pool", ""),
-                il_risk=il_risk,
-                stable_coin=is_stable,
-                timestamp=now
-            ))
+            pools.append(
+                YieldPool(
+                    protocol=raw_pool.get("project", "unknown"),
+                    symbol=symbol,
+                    chain=chain,
+                    apy=round(apy, 2),
+                    tvl_usd=round(tvl, 0),
+                    pool_id=raw_pool.get("pool", ""),
+                    il_risk=il_risk,
+                    stable_coin=is_stable,
+                    timestamp=now,
+                )
+            )
 
         # Sort by TVL (most liquid first) and limit
         pools.sort(key=lambda p: p.tvl_usd, reverse=True)
-        pools = pools[:config.filters.max_pools_to_fetch]
+        pools = pools[: config.filters.max_pools_to_fetch]
 
         self._set_cached(cache_key, pools, config.cache.yield_ttl_seconds, DataSource.DEFILLAMA)
         print(f"[DataService] Fetched {len(pools)} yield pools")
@@ -321,13 +325,7 @@ class DataService:
                 print(f"[DataService] Failed to parse timestamp {ts}: {e}")
                 continue
 
-        result = TimeSeries(
-            timestamps=timestamps,
-            values=values,
-            source="defillama",
-            asset=pool_id,
-            metric="apy"
-        )
+        result = TimeSeries(timestamps=timestamps, values=values, source="defillama", asset=pool_id, metric="apy")
 
         self._set_cached(cache_key, result, config.cache.historical_ttl_seconds, DataSource.DEFILLAMA)
         return result
@@ -433,7 +431,7 @@ class DataService:
             standard_gwei=float(speeds[1].get("gasPrice", 25)),
             fast_gwei=float(speeds[2].get("gasPrice", 30)),
             eth_price_usd=eth_price,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
     async def _fetch_gas_etherscan(self, eth_price: float) -> GasData | None:
@@ -454,7 +452,7 @@ class DataService:
             standard_gwei=float(result.get("ProposeGasPrice", 25)),
             fast_gwei=float(result.get("FastGasPrice", 30)),
             eth_price_usd=eth_price,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
         )
 
     # ==================== ANALYSIS HELPERS ====================
@@ -469,9 +467,7 @@ class DataService:
         gas_task = self.get_gas_data()
         eth_task = self.get_eth_price()
 
-        pools, gas, eth_price = await asyncio.gather(
-            pools_task, gas_task, eth_task
-        )
+        pools, gas, eth_price = await asyncio.gather(pools_task, gas_task, eth_task)
 
         return {
             "timestamp": datetime.now().isoformat(),
@@ -480,7 +476,7 @@ class DataService:
             "pools": [p.to_dict() for p in pools],
             "pool_count": len(pools),
             "top_apy": max((p.apy for p in pools), default=0),
-            "avg_apy": sum(p.apy for p in pools) / len(pools) if pools else 0
+            "avg_apy": sum(p.apy for p in pools) / len(pools) if pools else 0,
         }
 
     def compute_trend(self, time_series: TimeSeries) -> dict:
@@ -515,7 +511,7 @@ class DataService:
 
         # Volatility (coefficient of variation)
         variance = sum((v - y_mean) ** 2 for v in values) / n
-        std_dev = variance ** 0.5
+        std_dev = variance**0.5
         volatility = std_dev / y_mean if y_mean != 0 else 0
 
         return {
@@ -524,7 +520,7 @@ class DataService:
             "normalized_slope": round(norm_slope, 4),
             "volatility": round(volatility, 4),
             "mean": round(y_mean, 2),
-            "latest": values[-1] if values else 0
+            "latest": values[-1] if values else 0,
         }
 
     async def close(self):
