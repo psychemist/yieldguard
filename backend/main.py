@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     await data_service.close()
 
 # Determine root path for Vercel deployment
-is_vercel = os.getenv("VERCEL") == "1"
+is_vercel = os.getenv("VERCEL") is not None
 root_path = "/api" if is_vercel else ""
 
 app = FastAPI(
@@ -41,6 +41,15 @@ app = FastAPI(
     lifespan=lifespan,
     root_path=root_path
 )
+
+# --- Vercel Compatibility Hack ---
+
+@app.get("/api/health")
+async def health_check_prefix():
+    """Fallback health check for /api/health"""
+    return await health_check()
+
+# ---------------------------------
 
 # Update allowed origins for production
 origins = [
