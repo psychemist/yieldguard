@@ -3,6 +3,7 @@ YieldGuard Lite API
 Production-ready FastAPI backend for DeFi yield optimization.
 """
 
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -29,14 +30,31 @@ async def lifespan(app: FastAPI):
     yield
     await data_service.close()
 
+# Determine root path for Vercel deployment
+is_vercel = os.getenv("VERCEL") == "1"
+root_path = "/api" if is_vercel else ""
 
 app = FastAPI(
-    title="YieldGuard Lite API", description="AI-powered DeFi yield optimization", version="2.0.0", lifespan=lifespan
+    title="YieldGuard Lite API",
+    description="AI-powered DeFi yield optimization",
+    version="2.0.0",
+    lifespan=lifespan,
+    root_path=root_path
 )
+
+# Update allowed origins for production
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# Allow all origins in production (or specific Vercel domains)
+if is_vercel:
+    origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
