@@ -9,7 +9,7 @@ from datetime import datetime
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
@@ -30,55 +30,26 @@ async def lifespan(app: FastAPI):
     yield
     await data_service.close()
 
-# Determine root path for Vercel deployment
-is_vercel = os.getenv("VERCEL") is not None
-root_path = "/api" if is_vercel else ""
-
+# Initialize App
 app = FastAPI(
     title="YieldGuard Lite API",
     description="AI-powered DeFi yield optimization",
     version="2.0.0",
     lifespan=lifespan,
-    root_path=root_path
 )
 
-# --- Vercel Compatibility Hack ---
-
-@app.get("/api/health")
-async def health_check_prefix():
-    """Fallback health check for /api/health"""
-    return await health_check()
-
-# ---------------------------------
-
-# Update allowed origins for production
-origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
-# Allow all origins in production (or specific Vercel domains)
-if is_vercel:
-    origins = ["*"]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+# Initialize Services
 model_runner = ModelRunner()
 agent = get_agent()
 
+# Create a main router for all endpoints
+router = APIRouter()
 
-@app.get("/")
+@router.get("/")
 async def root():
     return {"name": "YieldGuard Lite API", "version": "2.0.0", "status": "operational"}
 
-
-@app.get("/health")
+@router.get("/health")
 async def health_check():
     """Health check with data source status."""
     return {
@@ -88,11 +59,10 @@ async def health_check():
     }
 
 
-@app.post("/recommendations", response_model=RecommendationResponse)
+@router.post("/recommendations", response_model=RecommendationResponse)
 async def get_recommendations(request: RecommendationRequest):
     """
     Get AI-powered yield optimization recommendations.
-    Uses live data from DeFiLlama, CoinGecko, and gas oracles.
     """
     try:
         print(f"📊 Recommendation request: ${request.capital:,.0f}, {request.risk_profile}")
@@ -136,7 +106,7 @@ async def get_recommendations(request: RecommendationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/yields")
+@router.get("/yields")
 async def get_yields():
     """Get current yield pools."""
     try:
@@ -146,13 +116,10 @@ async def get_yields():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/yields/historical")
+@router.get("/yields/historical")
 async def get_historical_yields(pool_id: str | None = None, pool_ids: str | None = None, days: int = 30):
     """
     Get historical yield data for charting.
-    If pool_id is provided, returns single pool history.
-    If pool_ids (comma-separated) is provided, returns history for those pools.
-    Otherwise returns top 5 pool histories.
     """
     try:
         if pool_id:
@@ -203,7 +170,7 @@ async def get_historical_yields(pool_id: str | None = None, pool_ids: str | None
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/gas")
+@router.get("/gas")
 async def get_gas():
     """Get current gas prices with USD estimates."""
     try:
@@ -225,7 +192,7 @@ async def get_gas():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/market")
+@router.get("/market")
 async def get_market_snapshot():
     """Get complete market snapshot for dashboard."""
     try:
@@ -235,13 +202,10 @@ async def get_market_snapshot():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/analysis")
+@router.get("/analysis")
 async def get_market_analysis():
     """
-    Get comprehensive market analysis including:
-    - Trend detection for top pools
-    - Volatility analysis
-    - Market stance recommendation
+    Get comprehensive market analysis.
     """
     try:
         # Get pools and their history
@@ -307,7 +271,7 @@ async def get_market_analysis():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/chat", response_model=ChatResponse)
+@router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
     Chat with the AI agent for tailored advice.
@@ -327,6 +291,30 @@ async def chat_endpoint(request: ChatRequest):
         print(f"❌ Chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# Include the router twice:
+# 1. At root (e.g. /health) for local dev
+app.include_router(router)
+# 2. At /api (e.g. /api/health) for Vercel production
+app.include_router(router, prefix="/api")
+
+# Update allowed origins for production
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+# Allow all origins in production (or specific Vercel domains)
+if os.getenv("VERCEL"):
+    origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
