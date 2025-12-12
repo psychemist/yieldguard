@@ -6,7 +6,7 @@
     "build": "cd frontend && npm install && npm run build"
   },
   "dependencies": {
-    "next": "15.3.4"
+    "next": "15.3.8"
   },
   "engines": {
     "node": "20.x"
