@@ -100,7 +100,7 @@ YieldGuard operates as a modern full-stack application:
 - **API Keys:**
   - **Groq API Key:** For the AI agent.
   - **WalletConnect Project ID:** For the frontend wallet connection.
-  - **Etherscan API Key:** (Optional) For precise gas data.
+  - **Etherscan API Key:** For precise gas data.
 
 ### 1. Clone the Repository
 
@@ -115,11 +115,11 @@ cd yieldguard
 cd backend
 
 # Create virtual environment
-python -m venv venv
+python3 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 # Configure Environment
 cp .env.example .env
@@ -145,7 +145,7 @@ npm install
 ```bash
 cd backend
 source venv/bin/activate
-python main.py
+python3 main.py
 # Server runs at http://localhost:8000
 # API Docs at http://localhost:8000/docs
 ```
