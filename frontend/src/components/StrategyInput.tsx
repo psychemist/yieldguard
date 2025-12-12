@@ -102,7 +102,7 @@ export default function StrategyInput({ onRecommendation, loading, setLoading, i
     setError('');
 
     try {
-      const response = await fetch('http://localhost:8000/recommendations', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/recommendations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

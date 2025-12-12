@@ -68,14 +68,14 @@ export default function YieldDashboard({ recommendation, onNavigateToStrategy, o
 
   const fetchHistoricalData = async (poolIds?: string[], assetNames?: string[]) => {
     try {
-      let url = 'http://localhost:8000/yields/historical?days=30';
+      let url = `${process.env.NEXT_PUBLIC_API_URL}/yields/historical?days=30`;
       if (poolIds && poolIds.length > 0) {
         url += `&pool_ids=${poolIds.join(',')}`;
       }
-      
+
       console.log('Fetching REAL historical data from backend...', poolIds ? `for pools: ${poolIds.join(', ')}` : 'for top pools');
+
       const response = await fetch(url);
-      
       if (!response.ok) {
         console.error(`API error: ${response.status}`);
         setHistoricalData([]);
@@ -122,8 +122,7 @@ export default function YieldDashboard({ recommendation, onNavigateToStrategy, o
   const fetchGasData = async () => {
     try {
       console.log('Fetching REAL gas data from backend...');
-      const response = await fetch('http://localhost:8000/gas');
-      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/gas`);
       if (!response.ok) {
         console.log(`Gas API error: ${response.status}`);
         return;
@@ -381,7 +380,7 @@ export default function YieldDashboard({ recommendation, onNavigateToStrategy, o
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      📊 <strong>Showing top DeFi protocols by TVL.</strong> Get a personalized AI recommendation to see historical trends for assets matched to your risk profile and capital.
+                      📊 <strong>Showing top DeFi protocols on Ethereum by TVL.</strong> Get a personalized AI recommendation to see historical trends for assets matched to your risk profile and capital.
                     </p>
                   )}
                 </div>
